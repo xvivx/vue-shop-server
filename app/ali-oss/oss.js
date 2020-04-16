@@ -130,41 +130,67 @@ async function deleteMulti(objNames) {
 }
 
 function ossWrapper(dbPath, pk = `id`) {
+  var timer = null;
+
+  // 可能有些情况需要自定义写入，目前还没发现，先留下口子
+  function write(data) {
+    dbs[dbPath] = data;
+    keepSameToDb(data);
+  }
+
+  // 提升这块逻辑，一个db只维护一个定时器延迟写入
+  function keepSameToDb(data) {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      var now = await get(dbPath);
+
+      if (!now || !data) {
+        // 走到这里时是数据没有读取成功，导致now或者本地内存中数据异常，禁止写入，等待下一次写入
+        // 以前用公网调取，失败率较高，现使用内网调用oss
+        return;
+      }
+
+      var merge = synchronous(now, data, dbPath, pk);
+
+      // 同步数据库和本地数据的结果，写了这么多
+      // 真想买个数据库服务，就不用这么麻烦了，学习情况还是保持0成本吧
+      dbs[dbPath] = merge;
+      dbs[dbPath + 'copy'] = getKeys(merge, pk);
+
+      put(dbPath, merge, `private`);
+    }, 1000 * 60);
+  }
+
   return function(callback) {
-    return function(needPut) {
-      function write(data) {
-        dbs[dbPath] = data;
-        keepSameToDb(data);
-      }
-
-      function keepSameToDb(data) {
-        clearTimeout(timer);
-        timer = setTimeout(async () => {
-          var now = await get(dbPath);
-          var merge = synchronous(now, data, dbPath, pk);
-
-          dbs[dbPath] = merge;
-          dbs[dbPath + 'copy'] = getKeys(merge, pk);
-
-          put(dbPath, merge, `private`);
-        }, 1000 * 60);
-      }
-
-      var timer = null;
-
+    return function(autoWrite, customWrite) {
       return async function() {
-        var all = dbs[dbPath] || (await get(dbPath));
-        var cache = await callback(all, ...arguments, write);
-
-        if (needPut) {
-          dbs[dbPath] = cache;
-          keepSameToDb(cache);
-        } else {
-          dbs[dbPath] = all;
+        // 首次启动是没有缓存，需要从数据库取，之后只维护缓存中数据
+        // 只有要写入数据库时才会再取数据进行merge
+        if (!dbs[dbPath]) {
+          // 将数据缓存至内存中，同时缓存数据表的主键
+          dbs[dbPath] = await get(dbPath);
+          // 缓存此时的key
+          dbs[dbPath + 'copy'] =
+            dbs[dbPath + 'copy'] || getKeys(dbs[dbPath], pk);
         }
 
-        dbs[dbPath + 'copy'] = dbs[dbPath + 'copy'] || getKeys(dbs[dbPath], pk);
+        var args = [...arguments];
 
+        if (autoWrite === false && customWrite === true) {
+          // 只有自动写入是true时才会把write函数传给callback
+          args.push(write);
+        }
+
+        // 需要写入数据库的要返回出来
+        var cache = await callback(dbs[dbPath], ...args);
+
+        if (autoWrite) {
+          // 增删查改后延迟批量写入
+          dbs[dbPath] = cache;
+          keepSameToDb(dbs[dbPath]);
+        }
+
+        // 将callback的返回结果抛出去
         return cache;
       };
     };
@@ -172,6 +198,10 @@ function ossWrapper(dbPath, pk = `id`) {
 }
 
 function getKeys(data, key = `id`) {
+  if (!data) {
+    return [];
+  }
+
   if (Array.isArray(data)) {
     return data.map((item) => item[key]);
   } else {
@@ -184,10 +214,15 @@ function delKey(data, key, pk) {
     return data.filter((item) => item[pk] !== key);
   } else {
     delete data[key];
+    return data;
   }
 }
 
 function synchronous(now, cache, dbPath, pk) {
+  if (!cache || !now) {
+    return;
+  }
+
   var cacheKeys = `,` + getKeys(cache, pk).join(`,`) + `,`;
   var nowKeys = `,` + getKeys(now, pk).join(`,`) + `,`;
 

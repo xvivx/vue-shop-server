@@ -63,6 +63,14 @@ async function userInfo(req, res) {
 async function login(req, res) {
   var username = req.body.username;
   var password = req.body.password;
+
+  if (!username || !password) {
+    return res.json({
+      status: `error`,
+      error: `用户名和密码不能为空`
+    });
+  }
+
   var user = await USER.get(username);
 
   if (!user) {

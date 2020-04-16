@@ -31,7 +31,7 @@ function removeEmptyProps(obj) {
   var result = Object.create(null);
 
   if (!obj) {
-    return { a: 1 };
+    return result;
   }
 
   for (var key in obj) {
@@ -60,7 +60,7 @@ function unhandledRejection(reason) {
   var time = now.toTimeString().slice(0, 8);
   var error = reason;
   var message = ``;
-  var stack = null;
+  
   // 这是程序内抛出的统一错误, 带有status字段
   if (reason.status === `error`) {
     error = reason.error || {};

@@ -3,13 +3,8 @@ var { removeEmptyProps } = require('../util');
 
 var oss = ossWrapper(`data/all-commodities.json`);
 
-async function get(all, data) {
+function get(all, data) {
   if (!data) {
-    return all;
-  }
-
-  // 由于oss会把write函数传过来，这里区分一下
-  if (typeof data === `function`) {
     return all;
   }
 
@@ -36,17 +31,17 @@ async function get(all, data) {
   });
 }
 
-async function add(all, data) {
+function add(all, data) {
   all.unshift(data);
 
   return all;
 }
 
-async function del(all, id) {
+function del(all, id) {
   return all.filter((item) => item.id !== id);
 }
 
-async function update(all, data) {
+function update(all, data) {
   all = all.map((item) => {
     if (item.id === data.id) {
       item = {
@@ -61,7 +56,7 @@ async function update(all, data) {
   return all;
 }
 
-async function set(all, data) {
+function set(all, data) {
   return data;
 }
 

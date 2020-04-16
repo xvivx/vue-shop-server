@@ -4,10 +4,7 @@ module.exports = async function(req, res, next) {
   var token = req.header(`token`);
 
   if (!token) {
-    return res.json({
-      status: `loginerror`,
-      error: `未登录`
-    });
+    return next();
   }
 
   var tokens = (await TOKEN.get()) || {};
@@ -25,14 +22,11 @@ module.exports = async function(req, res, next) {
 
     req.app.locals.username = username;
     req.app.locals.role = role;
-    return next();
+
   } else {
     // 过期了
-    await TOKEN.del(token);
+    TOKEN.del(token);
   }
 
-  return res.json({
-    status: `loginerror`,
-    error: `登录已过期，请重新登录`,
-  });
+  return next();
 };

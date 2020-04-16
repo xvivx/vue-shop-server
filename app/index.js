@@ -17,13 +17,14 @@ const order = require('./routes/order-route');
 const cart = require('./routes/cart-route');
 const message = require('./routes/message-route');
 const hot = require('./routes/hot-route');
-
+const graphql = require('./graphql');
 const { unhandledRejection } = require('./util');
 
 process.on('unhandledRejection', unhandledRejection);
 
 // 初始化程序
 const app = express();
+
 
 // 跨域处理
 app.all('*', function(req, res, next) {
@@ -36,6 +37,9 @@ app.all('*', function(req, res, next) {
     return next();
   }
 });
+
+// 使用graphql处理接口
+app.use(`/graphql`, require('./middlewares/oauth-graphql'), graphql);
 
 app.get(`/healthy`, function(req, res) {
   return res.sendStatus(200);
@@ -77,7 +81,7 @@ app.use(function(err, req, res, next) {
   unhandledRejection(err);
   res.json({
     status: `error`,
-    error: `服务器发生异常错误`
+    error: err.message || `服务器发生异常错误`,
   });
 });
 

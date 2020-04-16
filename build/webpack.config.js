@@ -14,18 +14,6 @@ export default {
     libraryTarget: 'commonjs',
     chunkFilename: 'chunks/[name].[chunkhash:5].js'
   },
-  module: {
-    rules: [
-      {
-        test: /\.js$/,
-        use: [
-          {
-            loader: 'babel-loader'
-          }
-        ]
-      }
-    ]
-  },
   plugins: [
     new webpack.DefinePlugin({
       'process.env': {

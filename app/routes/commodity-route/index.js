@@ -176,6 +176,13 @@ async function discounted(req, res) {
 
 // 商品详情
 async function detail(req, res) {
+  if (!req.query.id) {
+    return res.json({
+      status: `error`,
+      error: `缺少商品ID`
+    });
+  }
+
   var [commodity] = await COMMODITY.get({ id: req.query.id });
 
   if (!commodity || (commodity.id && commodity.status !== `在线`)) {
